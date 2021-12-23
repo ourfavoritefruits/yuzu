@@ -1,0 +1,52 @@
+name: 'yuzu verify'
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  format:
+    name: 'verify formatting'
+    runs-on: ubuntu-latest
+    container:
+      image: yuzuemu/build-environments:linux-clang-format
+      options: -u 1001
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: false
+      - name: 'Verify Formatting'
+        run: bash -ex ./.ci/scripts/format/script.sh
+  build:
+    name: 'test build'
+    needs: format
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - type: clang
+            image: linux-fresh
+          - type: linux
+            image: linux-fresh
+          - type: windows
+            image: linux-mingw
+    container:
+      image: yuzuemu/build-environments:${{ matrix.image }}
+      options: -u 1001
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-${{ matrix.image }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.image }}-
+      - name: Build
+        run: ./.ci/scripts/${{ matrix.type }}/docker.sh
+        env:
+          ENABLE_COMPATIBILITY_REPORTING: "ON"
