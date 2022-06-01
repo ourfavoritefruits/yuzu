@@ -24,3 +24,9 @@ jobs:
         run: ./.ci/scripts/transifex/docker.sh
         env:
           TRANSIFEX_API_TOKEN: ${{ secrets.TRANSIFEX_API_TOKEN }}
+
+  reuse:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: fsfe/reuse-action@v1
