@@ -54,6 +54,15 @@ jobs:
         run: ./.ci/scripts/${{ matrix.type }}/docker.sh
         env:
           ENABLE_COMPATIBILITY_REPORTING: "ON"
+      - name: Pack
+        run: ./.ci/scripts/${{ matrix.type }}/upload.sh
+        env:
+          NO_SOURCE_PACK: "YES"
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.type }}
+          path: artifacts/
   build-msvc:
     name: 'test build (windows, msvc)'
     needs: format
@@ -67,6 +76,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-msvc-
       - name: Install dependencies
+        # due to how chocolatey works, only cmd.exe is supported here
         shell: cmd
         run: |
           choco install vulkan-sdk wget
@@ -95,3 +105,11 @@ jobs:
         run: cmake --build build
       - name: Cache Summary
         run: buildcache -s
+      - name: Pack
+        shell: pwsh
+        run: .\.ci\scripts\windows\upload.ps1
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: msvc
+          path: artifacts/
