@@ -12,7 +12,7 @@ jobs:
       image: yuzuemu/build-environments:linux-clang-format
       options: -u 1001
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: false
       - name: 'Verify Formatting'
@@ -35,12 +35,12 @@ jobs:
       image: yuzuemu/build-environments:${{ matrix.image }}
       options: -u 1001
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
           fetch-depth: 0
       - name: Set up cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: ccache-restore
         with:
           path: ~/.ccache
@@ -69,7 +69,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - name: Set up cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.buildcache
           key: ${{ runner.os }}-msvc-${{ github.sha }}
@@ -89,7 +89,7 @@ jobs:
           echo %PATH% >> %GITHUB_PATH%
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
           fetch-depth: 0
