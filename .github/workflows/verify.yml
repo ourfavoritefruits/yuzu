@@ -129,11 +129,12 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+          fetch-depth: 0
       - name: set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
-          distribution: 'adopt'
+          distribution: 'temurin'
       - name: Set up cache
         uses: actions/cache@v3
         with:
@@ -151,7 +152,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ccache apksigner glslang-dev glslang-tools
-          git -C ./externals/vcpkg/ fetch --all --unshallow
       - name: Build
         run: ./.ci/scripts/android/build.sh
       - name: Copy and sign artifacts
