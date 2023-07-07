@@ -85,16 +85,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-msvc-
       - name: Install dependencies
-        # due to how chocolatey works, only cmd.exe is supported here
-        shell: cmd
+        shell: pwsh
         run: |
-          choco install wget
-          call refreshenv
-          wget https://github.com/mbitsnbites/buildcache/releases/download/v0.27.6/buildcache-windows.zip
-          7z x buildcache-windows.zip
-          copy buildcache\bin\buildcache.exe C:\ProgramData\chocolatey\bin
-          rmdir buildcache
-          echo %PATH% >> %GITHUB_PATH%
+          $ErrorActionPreference = "Stop"
+          $BuildCacheVer = "v0.28.4"
+          $File = "buildcache-windows.zip"
+          $Uri = "https://github.com/mbitsnbites/buildcache/releases/download/$BuildCacheVer/$File"
+          $WebClient = New-Object System.Net.WebClient
+          $WebClient.DownloadFile($Uri, $File)
+          7z x $File
+          $CurrentDir = Convert-Path .
+          echo "$CurrentDir/buildcache/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Install Vulkan SDK
         shell: pwsh
         run: .\.ci\scripts\windows\install-vulkan-sdk.ps1
