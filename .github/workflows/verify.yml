@@ -73,6 +73,10 @@ jobs:
     needs: format
     runs-on: windows-2022
     steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
       - name: Set up cache
         uses: actions/cache@v3
         with:
@@ -96,10 +100,6 @@ jobs:
         run: .\.ci\scripts\windows\install-vulkan-sdk.ps1
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          fetch-depth: 0
       - name: Configure
         env:
           CC: cl.exe
