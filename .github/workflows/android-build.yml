@@ -40,11 +40,11 @@ jobs:
           sudo apt-get install -y ccache apksigner glslang-dev glslang-tools
       - name: Build
         run: ./.ci/scripts/android/build.sh
-      - name: Copy and sign artifacts
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+      - name: Copy artifacts
         run: ./.ci/scripts/android/upload.sh
       - name: Upload
         uses: actions/upload-artifact@v3
