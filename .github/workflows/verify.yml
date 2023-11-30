@@ -68,6 +68,25 @@ jobs:
         with:
           name: ${{ matrix.type }}
           path: artifacts/
+  build-mac:
+    name: 'test build (macos)'
+    needs: format
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          brew install autoconf automake boost@1.83 ccache ffmpeg fmt glslang hidapi libtool libusb lz4 ninja nlohmann-json openssl pkg-config qt@5 sdl2 speexdsp zlib zlib zstd
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          export Qt5_DIR="/usr/local/opt/qt@5/lib/cmake"
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DYUZU_USE_BUNDLED_VCPKG=OFF -DYUZU_TESTS=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF
+          ninja
   build-msvc:
     name: 'test build (windows, msvc)'
     needs: format
