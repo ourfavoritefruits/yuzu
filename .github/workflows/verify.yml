@@ -79,7 +79,8 @@ jobs:
           fetch-depth: 0
       - name: Install dependencies
         run: |
-          brew install autoconf automake boost@1.83 ccache ffmpeg fmt glslang hidapi libtool libusb lz4 ninja nlohmann-json openssl pkg-config qt@5 sdl2 speexdsp zlib zlib zstd
+          # workaround for https://github.com/actions/setup-python/issues/577
+          brew install autoconf automake boost@1.83 ccache ffmpeg fmt glslang hidapi libtool libusb lz4 ninja nlohmann-json openssl pkg-config qt@5 sdl2 speexdsp zlib zlib zstd || brew link --overwrite python@3.12
       - name: Build
         run: |
           mkdir build
