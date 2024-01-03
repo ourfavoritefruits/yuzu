@@ -157,7 +157,7 @@ async function mergePullRequests(pulls, execa) {
             process1.stdout.pipe(process.stdout);
             await process1;
 
-            const process2 = execa("git", ["commit", "-m", `Merge PR ${pr}`]);
+            const process2 = execa("git", ["commit", "-m", `Merge yuzu-emu#${pr}`]);
             process2.stdout.pipe(process.stdout);
             await process2;
 
