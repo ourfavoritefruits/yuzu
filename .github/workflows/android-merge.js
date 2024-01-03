@@ -10,7 +10,7 @@ const CHANGE_LABEL = 'android-merge';
 // how far back in time should we consider the changes are "recent"? (default: 24 hours)
 const DETECTION_TIME_FRAME = (parseInt(process.env.DETECTION_TIME_FRAME)) || (24 * 3600 * 1000);
 
-async function checkBaseChanges(github, context) {
+async function checkBaseChanges(github) {
     // query the commit date of the latest commit on this branch
     const query = `query($owner:String!, $name:String!, $ref:String!) {
         repository(name:$name, owner:$owner) {
@@ -22,8 +22,8 @@ async function checkBaseChanges(github, context) {
         }
     }`;
     const variables = {
-        owner: context.repo.owner,
-        name: context.repo.repo,
+        owner: 'yuzu-emu',
+        name: 'yuzu',
         ref: 'refs/heads/master',
     };
     const result = await github.graphql(query, variables);
@@ -38,8 +38,8 @@ async function checkBaseChanges(github, context) {
     return false;
 }
 
-async function checkAndroidChanges(github, context) {
-    if (checkBaseChanges(github, context)) return true;
+async function checkAndroidChanges(github) {
+    if (checkBaseChanges(github)) return true;
     const query = `query($owner:String!, $name:String!, $label:String!) {
         repository(name:$name, owner:$owner) {
             pullRequests(labels: [$label], states: OPEN, first: 100) {
@@ -48,8 +48,8 @@ async function checkAndroidChanges(github, context) {
         }
     }`;
     const variables = {
-        owner: context.repo.owner,
-        name: context.repo.repo,
+        owner: 'yuzu-emu',
+        name: 'yuzu',
         label: CHANGE_LABEL,
     };
     const result = await github.graphql(query, variables);
@@ -182,7 +182,30 @@ async function mergePullRequests(pulls, execa) {
     return mergeResults;
 }
 
+async function resetBranch(execa) {
+    console.log("::group::Reset master branch");
+    let hasFailed = false;
+    try {
+        await execa("git", ["remote", "add", "source", "https://github.com/yuzu-emu/yuzu.git"]);
+        await execa("git", ["fetch", "source"]);
+        const process1 = await execa("git", ["rev-parse", "source/master"]);
+        const headCommit = process1.stdout;
+
+        await execa("git", ["reset", "--hard", headCommit]);
+    } catch (err) {
+        console.log(`::error title=Failed to reset master branch`);
+        hasFailed = true;
+    }
+    console.log("::endgroup::");
+    if (hasFailed) {
+        throw 'Failed to reset the master branch. Aborting!';
+    }
+}
+
 async function mergebot(github, context, execa) {
+    // Reset our local copy of master to what appears on yuzu-emu/yuzu - master
+    await resetBranch(execa);
+
     const query = `query ($owner:String!, $name:String!, $label:String!) {
         repository(name:$name, owner:$owner) {
             pullRequests(labels: [$label], states: OPEN, first: 100) {
@@ -193,8 +216,8 @@ async function mergebot(github, context, execa) {
         }
     }`;
     const variables = {
-        owner: context.repo.owner,
-        name: context.repo.repo,
+        owner: 'yuzu-emu',
+        name: 'yuzu',
         label: CHANGE_LABEL,
     };
     const result = await github.graphql(query, variables);
@@ -209,7 +232,7 @@ async function mergebot(github, context, execa) {
     await fetchPullRequests(pulls, "https://github.com/yuzu-emu/yuzu", execa);
     const mergeResults = await mergePullRequests(pulls, execa);
     await generateReadme(pulls, context, mergeResults, execa);
-    await tagAndPush(github, context.repo.owner, `${context.repo.repo}-android`, execa, true);
+    await tagAndPush(github, 'yuzu-emu', `yuzu-android`, execa, true);
 }
 
 module.exports.mergebot = mergebot;
