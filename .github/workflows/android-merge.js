@@ -90,8 +90,8 @@ async function tagAndPush(github, owner, repo, execa, commit=false) {
     console.log(`New tag: ${newTag}`);
     if (commit) {
         let channelName = channel[0].toUpperCase() + channel.slice(1);
-        console.info(`Committing pending commit as ${channelName} #${tagNumber + 1}`);
-        await execa("git", ['commit', '-m', `${channelName} #${tagNumber + 1}`]);
+        console.info(`Committing pending commit as ${channelName} ${tagNumber + 1}`);
+        await execa("git", ['commit', '-m', `${channelName} ${tagNumber + 1}`]);
     }
     console.info('Pushing tags to GitHub ...');
     await execa("git", ['tag', newTag]);
