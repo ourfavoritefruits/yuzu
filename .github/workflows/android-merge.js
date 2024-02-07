@@ -6,9 +6,12 @@
 
 const fs = require("fs");
 // which label to check for changes
-const CHANGE_LABEL = 'android-merge';
+const CHANGE_LABEL_MAINLINE = 'android-merge';
+const CHANGE_LABEL_EA = 'android-ea-merge';
 // how far back in time should we consider the changes are "recent"? (default: 24 hours)
 const DETECTION_TIME_FRAME = (parseInt(process.env.DETECTION_TIME_FRAME)) || (24 * 3600 * 1000);
+const BUILD_EA = process.env.BUILD_EA == 'true';
+const MAINLINE_TAG = process.env.MAINLINE_TAG;
 
 async function checkBaseChanges(github) {
     // query the commit date of the latest commit on this branch
@@ -40,20 +43,7 @@ async function checkBaseChanges(github) {
 
 async function checkAndroidChanges(github) {
     if (checkBaseChanges(github)) return true;
-    const query = `query($owner:String!, $name:String!, $label:String!) {
-        repository(name:$name, owner:$owner) {
-            pullRequests(labels: [$label], states: OPEN, first: 100) {
-                nodes { number headRepository { pushedAt } }
-            }
-        }
-    }`;
-    const variables = {
-        owner: 'yuzu-emu',
-        name: 'yuzu',
-        label: CHANGE_LABEL,
-    };
-    const result = await github.graphql(query, variables);
-    const pulls = result.repository.pullRequests.nodes;
+    const pulls = getPulls(github, false);
     for (let i = 0; i < pulls.length; i++) {
         let pull = pulls[i];
         if (new Date() - new Date(pull.headRepository.pushedAt) <= DETECTION_TIME_FRAME) {
@@ -83,7 +73,13 @@ async function tagAndPush(github, owner, repo, execa, commit=false) {
     };
     const tags = await github.graphql(query, variables);
     const tagList = tags.repository.refs.nodes;
-    const lastTag = tagList[0] ? tagList[0].name : 'dummy-0';
+    let lastTag = 'android-1';
+    for (let i = 0; i < tagList.length; ++i) {
+        if (tagList[i].name.includes('android-')) {
+            lastTag = tagList[i].name;
+            break;
+        }
+    }
     const tagNumber = /\w+-(\d+)/.exec(lastTag)[1] | 0;
     const channel = repo.split('-')[1];
     const newTag = `${channel}-${tagNumber + 1}`;
@@ -98,6 +94,48 @@ async function tagAndPush(github, owner, repo, execa, commit=false) {
     await execa("git", ['remote', 'add', 'target', `https://${altToken}@github.com/${owner}/${repo}.git`]);
     await execa("git", ['push', 'target', 'master', '-f']);
     await execa("git", ['push', 'target', 'master', '--tags']);
+    console.info('Successfully pushed new changes.');
+}
+
+async function tagAndPushEA(github, owner, repo, execa) {
+    let altToken = process.env.ALT_GITHUB_TOKEN;
+    if (!altToken) {
+        throw `Please set ALT_GITHUB_TOKEN environment variable. This token should have write access to ${owner}/${repo}.`;
+    }
+    const query = `query ($owner:String!, $name:String!) {
+        repository(name:$name, owner:$owner) {
+            refs(refPrefix: "refs/tags/", orderBy: {field: TAG_COMMIT_DATE, direction: DESC}, first: 10) {
+                nodes { name }
+            }
+        }
+    }`;
+    const variables = {
+        owner: owner,
+        name: repo,
+    };
+    const tags = await github.graphql(query, variables);
+    const tagList = tags.repository.refs.nodes;
+    let lastTag = 'ea-1';
+    for (let i = 0; i < tagList.length; ++i) {
+        if (tagList[i].name.includes('ea-')) {
+            lastTag = tagList[i].name;
+            break;
+        }
+    }
+    const tagNumber = /\w+-(\d+)/.exec(lastTag)[1] | 0;
+    const newTag = `ea-${tagNumber + 1}`;
+    console.log(`New tag: ${newTag}`);
+    console.info('Pushing tags to GitHub ...');
+    await execa("git", ["remote", "add", "android", "https://github.com/yuzu-emu/yuzu-android.git"]);
+    await execa("git", ["fetch", "android"]);
+
+    await execa("git", ['tag', newTag]);
+    await execa("git", ['push', 'android', `${newTag}`]);
+
+    fs.writeFile('tag-name.txt', newTag, (err) => {
+        if (err) throw 'Could not write tag name to file!'
+    })
+
     console.info('Successfully pushed new changes.');
 }
 
@@ -202,10 +240,7 @@ async function resetBranch(execa) {
     }
 }
 
-async function mergebot(github, context, execa) {
-    // Reset our local copy of master to what appears on yuzu-emu/yuzu - master
-    await resetBranch(execa);
-
+async function getPulls(github) {
     const query = `query ($owner:String!, $name:String!, $label:String!) {
         repository(name:$name, owner:$owner) {
             pullRequests(labels: [$label], states: OPEN, first: 100) {
@@ -215,13 +250,49 @@ async function mergebot(github, context, execa) {
             }
         }
     }`;
-    const variables = {
+    const mainlineVariables = {
         owner: 'yuzu-emu',
         name: 'yuzu',
-        label: CHANGE_LABEL,
+        label: CHANGE_LABEL_MAINLINE,
     };
-    const result = await github.graphql(query, variables);
-    const pulls = result.repository.pullRequests.nodes;
+    const mainlineResult = await github.graphql(query, mainlineVariables);
+    const pulls = mainlineResult.repository.pullRequests.nodes;
+    if (BUILD_EA) {
+        const eaVariables = {
+            owner: 'yuzu-emu',
+            name: 'yuzu',
+            label: CHANGE_LABEL_EA,
+        };
+        const eaResult = await github.graphql(query, eaVariables);
+        const eaPulls = eaResult.repository.pullRequests.nodes;
+        return pulls.concat(eaPulls);
+    }
+    return pulls;
+}
+
+async function getMainlineTag(execa) {
+    console.log(`::group::Getting mainline tag android-${MAINLINE_TAG}`);
+    let hasFailed = false;
+    try {
+        await execa("git", ["remote", "add", "mainline", "https://github.com/yuzu-emu/yuzu-android.git"]);
+        await execa("git", ["fetch", "mainline", "--tags"]);
+        await execa("git", ["checkout", `tags/android-${MAINLINE_TAG}`]);
+        await execa("git", ["submodule", "update", "--init", "--recursive"]);
+    } catch (err) {
+        console.log('::error title=Failed pull tag');
+        hasFailed = true;
+    }
+    console.log("::endgroup::");
+    if (hasFailed) {
+        throw 'Failed pull mainline tag. Aborting!';
+    }
+}
+
+async function mergebot(github, context, execa) {
+    // Reset our local copy of master to what appears on yuzu-emu/yuzu - master
+    await resetBranch(execa);
+
+    const pulls = await getPulls(github);
     let displayList = [];
     for (let i = 0; i < pulls.length; i++) {
         let pull = pulls[i];
@@ -231,11 +302,17 @@ async function mergebot(github, context, execa) {
     console.table(displayList);
     await fetchPullRequests(pulls, "https://github.com/yuzu-emu/yuzu", execa);
     const mergeResults = await mergePullRequests(pulls, execa);
-    await generateReadme(pulls, context, mergeResults, execa);
-    await tagAndPush(github, 'yuzu-emu', `yuzu-android`, execa, true);
+
+    if (BUILD_EA) {
+        await tagAndPushEA(github, 'yuzu-emu', `yuzu-android`, execa);
+    } else {
+        await generateReadme(pulls, context, mergeResults, execa);
+        await tagAndPush(github, 'yuzu-emu', `yuzu-android`, execa, true);
+    }
 }
 
 module.exports.mergebot = mergebot;
 module.exports.checkAndroidChanges = checkAndroidChanges;
 module.exports.tagAndPush = tagAndPush;
 module.exports.checkBaseChanges = checkBaseChanges;
+module.exports.getMainlineTag = getMainlineTag;
