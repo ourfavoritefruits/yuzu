@@ -55,8 +55,8 @@ If you want to contribute to the user interface translation project, please chec
 
 ## Building
 
-* __Windows__: [Windows Build](https://github.com/yuzu-emu/yuzu/wiki/Building-For-Windows)
-* __Linux__: [Linux Build](https://github.com/yuzu-emu/yuzu/wiki/Building-For-Linux)
+* __Windows__: [Windows Build](https://web.archive.org/web/20240304183515/https://github.com/yuzu-emu/yuzu/wiki/Building-For-Windows)
+* __Linux__: [Linux Build](https://web.archive.org/web/20240304183515/https://github.com/yuzu-emu/yuzu/wiki/Building-For-Linux)
 
 ## Download
 
